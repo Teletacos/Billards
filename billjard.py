@@ -6,7 +6,7 @@ from pygame import Vector2, Rect
 from pygame.math import clamp
 
 pygame.init()
-pygame.display.set_caption("Billards for idiots")
+pygame.display.set_caption("Billards homemade")
 display_size = pygame.display.Info()
 
 screen_size = (display_size.current_w, display_size.current_h)
@@ -493,12 +493,6 @@ while True:
     ball.draw_sprite(canvas)
 
   player_stick.draw()
-
-  full_score_surface = font.render(str(match.full_left), True, (255, 255, 255))  # White text
-  canvas.blit(full_score_surface, (0, 0))
-
-  stripes_score_surface = font.render(str(match.stripes_left), True, (255, 255, 255))  # White text
-  canvas.blit(stripes_score_surface, (50, 0))
 
   type_surface = font.render(str(match.current_type), True, (255, 255, 255))  # White text
   canvas.blit(type_surface, (100, 0))
