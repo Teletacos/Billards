@@ -104,8 +104,9 @@ class Ball:
     self.wall_bounce_ratio = 0.6
     self.ball_bounce_ratio = 0.95
     self.rotation_friction = 50
-    self.spin_influence = 0.01
+    self.spin_influence = 0.025
     self.spin_margin = 0.96 # 1 - 100% of shots - 0.96
+    self.collision_margin = 0.1
 
     self.rotation_velocity = 0
     self.rotation = 0
@@ -113,7 +114,6 @@ class Ball:
     self.position = position
     self.base_radius = radius
     self.radius = radius
-    self.collision_margin = 0.1
 
     self.holding = False
     self.hold_power = 0
@@ -259,6 +259,7 @@ class Ball:
       self.check_bound_collision()
       speed = self.velocity.magnitude()
       if speed > 0.01: # Deadzone to avoid jittering
+        # Apply friction to velocity
         velocity_direction = self.velocity.normalize()
         friction_velocity = velocity_direction * -self.friction
         if (self.velocity + friction_velocity * dt).magnitude() > speed:
@@ -266,26 +267,32 @@ class Ball:
         else:
           self.velocity += friction_velocity * dt
 
+        # Apply friction to rotation velocity
+        rotation_friction = sign(self.rotation_velocity) * self.rotation_friction * dt * -10
+        if abs(self.rotation_velocity + rotation_friction) > abs(self.rotation_velocity):
+          self.rotation_velocity = 0
+        else:
+          self.rotation_velocity += rotation_friction
+
         spin_velocity = Vector2(velocity_direction.y, -velocity_direction.x) * self.rotation_velocity * self.spin_influence
         self.velocity += spin_velocity * dt
-        self.position += self.velocity * dt * 10
       else:
         self.velocity = Vector2(0, 0)
+        self.rotation_velocity = 0
 
-      rotation_friction = sign(self.rotation_velocity) * self.rotation_friction
-      rotation_friction = clamp(rotation_friction, -abs(self.rotation_velocity), abs(self.rotation_velocity))
-      self.rotation_velocity -= rotation_friction * dt * 10
       self.rotation += self.rotation_velocity * dt
+      self.position += self.velocity * dt * 10
 
-  def draw(self, surface):
+  def draw_shadow(self, surface):
     if not self.in_hole:
       # Shadow
-      #pygame.draw.circle(surface, (24, 59, 22), self.position + Vector2(6, 6), self.radius)
       shadow_image = pygame.transform.scale(ball_shadow, [self.radius * 2, self.radius * 2])
       shadow_image = pygame.transform.rotate(shadow_image, self.rotation)
       shadow_rect = shadow_image.get_rect(center=self.position + shadow_offset)
       surface.blit(shadow_image, shadow_rect)
 
+  def draw_sprite(self, surface):
+    if not self.in_hole:
       # Ball
       self.image = pygame.transform.scale(self.base_image, [self.radius * 2, self.radius * 2])
       self.image = pygame.transform.rotate(self.image, self.rotation)
@@ -373,22 +380,9 @@ class Stick:
       canvas.blit(new_image, image_rect)
     elif self.end_position:
       # Draw indicator
-
       mouse_pos = pygame.mouse.get_pos()
       offset = (Vector2(mouse_pos[0], mouse_pos[1]) - self.end_position)
-      distance = offset.magnitude()
-      if distance > 0:
-        step_length = 15
-        steps = int(distance/step_length) * 3
-
-        last_direction = (self.end_position - mouse_pos).normalize()
-        last_position = self.end_position
-        for i in range(steps):
-          new_direction = self.get_bound_direction(last_position, last_direction)
-          new_pos = last_position + new_direction * step_length
-          last_position = new_pos
-          last_direction = new_direction
-          pygame.draw.circle(canvas, (255, 255, 255), new_pos, 4)
+      pygame.draw.line(canvas, (255, 255, 255), self.end_position, self.end_position - offset, 4)
 
 class Match:
   def __init__(self):
@@ -415,8 +409,6 @@ class Match:
         self.grabbed_ball = ball
         self.grabbed_ball.in_hole = False
         self.grabbed_ball.grabbed = True
-
-        self.change_score(self.current_type, 1)
     elif self.current_type == "":
       # Set color, continue round
       self.current_type = ball.type
@@ -495,7 +487,10 @@ while True:
     pygame.draw.circle(canvas, (0, 0, 0), (hole[0], hole[1]), 10)
 
   for ball in balls:
-    ball.draw(canvas)
+    ball.draw_shadow(canvas)
+
+  for ball in balls:
+    ball.draw_sprite(canvas)
 
   player_stick.draw()
 
